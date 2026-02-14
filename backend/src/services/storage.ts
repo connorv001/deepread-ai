@@ -16,19 +16,30 @@ export class StorageService {
     const exists = await minioClient.bucketExists(BUCKET_NAME);
     if (!exists) {
       await minioClient.makeBucket(BUCKET_NAME);
-      // Set public read policy
-      const policy = {
-        Version: '2012-10-17',
-        Statement: [
-          {
-            Effect: 'Allow',
-            Principal: { AWS: ['*'] },
-            Action: ['s3:GetObject'],
-            Resource: [`arn:aws:s3:::${BUCKET_NAME}/*`]
-          }
-        ]
-      };
-      await minioClient.setBucketPolicy(BUCKET_NAME, JSON.stringify(policy));
+      
+      // Set CORS policy for browser access
+      const corsPolicy = [{
+        allowedOrigins: ['*'],
+        allowedMethods: ['GET', 'HEAD'],
+        allowedHeaders: ['*'],
+        maxAgeSeconds: 3600
+      }];
+      
+      try {
+        await minioClient.setBucketPolicy(BUCKET_NAME, JSON.stringify({
+          Version: '2012-10-17',
+          Statement: [
+            {
+              Effect: 'Allow',
+              Principal: { AWS: ['*'] },
+              Action: ['s3:GetObject'],
+              Resource: [`arn:aws:s3:::${BUCKET_NAME}/*`]
+            }
+          ]
+        }));
+      } catch (e) {
+        console.log('Policy may already exist');
+      }
     }
   }
 

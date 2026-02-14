@@ -1,8 +1,25 @@
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+// OpenRouter client - OpenAI compatible API
+const openrouter = new OpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY || 'dummy-key-for-startup',
+  defaultHeaders: {
+    'HTTP-Referer': process.env.APP_URL || 'http://localhost:3000',
+    'X-Title': 'DeepRead AI'
+  }
 });
+
+// Default model - Gemini 3 Flash via OpenRouter
+const DEFAULT_MODEL = 'google/gemini-3-flash:beta';
+
+// Alternative models users can choose
+const MODELS = {
+  'gemini-flash': 'google/gemini-3-flash:beta',
+  'gemini-pro': 'google/gemini-3-pro:beta',
+  'claude': 'anthropic/claude-3.5-sonnet',
+  'gpt-4': 'openai/gpt-4o-mini'
+};
 
 interface SummarizeParams {
   text?: string;
@@ -23,6 +40,10 @@ interface ChatParams {
   model: string;
 }
 
+function getModel(modelPreference: string): string {
+  return MODELS[modelPreference as keyof typeof MODELS] || DEFAULT_MODEL;
+}
+
 export class AIService {
   async summarize(params: SummarizeParams): Promise<{
     content: string;
@@ -40,8 +61,10 @@ export class AIService {
 
     const prompt = `${typeInstruction} ${formatInstruction}\n\nText:\n${params.text || 'Full document'}`;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+    const model = getModel(params.model);
+
+    const response = await openrouter.chat.completions.create({
+      model,
       messages: [
         {
           role: 'system',
@@ -75,8 +98,10 @@ export class AIService {
   }> {
     const prompt = `Analyze the following text and identify key concepts, provide definitions, and suggest related references.\n\nContext: ${params.context || 'General reading'}\n\nText:\n${params.text}\n\nRespond in JSON format with:\n- concepts: array of {name, definition, context, related[]}\n- references: array of {title, source, url?}`;
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+    const model = getModel(params.model);
+
+    const response = await openrouter.chat.completions.create({
+      model,
       messages: [
         {
           role: 'system',
@@ -85,18 +110,34 @@ export class AIService {
         { role: 'user', content: prompt }
       ],
       temperature: 0.3,
-      response_format: { type: 'json_object' },
       max_tokens: 2000
     });
 
     const content = response.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
-
-    return {
-      concepts: parsed.concepts || [],
-      references: parsed.references || [],
-      tokensUsed: response.usage?.total_tokens || 0
-    };
+    // Try to extract JSON if wrapped in markdown
+    const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || content.match(/{[\s\S]*}/);
+    const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+    
+    try {
+      const parsed = JSON.parse(jsonStr);
+      return {
+        concepts: parsed.concepts || [],
+        references: parsed.references || [],
+        tokensUsed: response.usage?.total_tokens || 0
+      };
+    } catch (e) {
+      // Fallback if JSON parsing fails
+      return {
+        concepts: [{ 
+          name: 'Analysis', 
+          definition: content.slice(0, 500),
+          context: 'Generated analysis',
+          related: []
+        }],
+        references: [],
+        tokensUsed: response.usage?.total_tokens || 0
+      };
+    }
   }
 
   async chat(params: ChatParams): Promise<{
@@ -112,8 +153,10 @@ export class AIService {
       { role: 'user' as const, content: params.message }
     ];
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4-turbo-preview',
+    const model = getModel(params.model);
+
+    const response = await openrouter.chat.completions.create({
+      model,
       messages,
       temperature: 0.7,
       max_tokens: 1500

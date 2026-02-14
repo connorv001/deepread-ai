@@ -141,3 +141,26 @@ router.delete('/:id', async (req, res, next) => {
 });
 
 export { router as documentsRouter };
+
+// Proxy document for CORS-free access
+router.get('/:id/content', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+
+    const document = await prisma.document.findFirst({
+      where: { id, userId }
+    });
+
+    if (!document) {
+      throw new AppError(404, 'Document not found');
+    }
+
+    // Stream file from storage
+    const stream = await storageService.getFileStream(document.storageKey);
+    res.setHeader('Content-Type', document.mimeType);
+    stream.pipe(res);
+  } catch (error) {
+    next(error);
+  }
+});

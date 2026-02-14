@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { PanelLeft, PanelRight, Headphones, Sparkles, BookOpen, ChevronLeft, Loader2 } from "lucide-react";
+import { Headphones, Sparkles, BookOpen, ChevronLeft, Loader2, FileText, ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { documentsApi, aiApi, audioApi } from "@/lib/api";
 import { useReaderStore, useAIStore } from "@/lib/store";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+
+// Set PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 export default function ReaderPage() {
   const { id } = useParams();
@@ -15,7 +21,7 @@ export default function ReaderPage() {
   const documentId = id as string;
   const { setCurrentDocument, setSelectedText } = useReaderStore();
 
-  const { data: document } = useQuery({
+  const { data: document, isLoading } = useQuery({
     queryKey: ["document", documentId],
     queryFn: () => documentsApi.get(documentId).then((r) => r.data.data.document),
     onSuccess: (doc) => setCurrentDocument(doc),
@@ -38,7 +44,13 @@ export default function ReaderPage() {
       {/* Split Pane Layout */}
       <ResizablePanelGroup direction="horizontal" className="flex-1">
         <ResizablePanel defaultSize={60} minSize={40}>
-          <DocumentViewer documentId={documentId} url={document?.url} />
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+          ) : (
+            <DocumentViewer document={document} />
+          )}
         </ResizablePanel>
         <ResizableHandle />
         <ResizablePanel defaultSize={40} minSize={30}>
@@ -49,8 +61,13 @@ export default function ReaderPage() {
   );
 }
 
-function DocumentViewer({ documentId, url }: { documentId: string; url?: string }) {
+function DocumentViewer({ document }: { document: any }) {
   const { setSelectedText } = useReaderStore();
+  const [numPages, setNumPages] = useState<number>(0);
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [scale, setScale] = useState<number>(1.2);
+  const [epubContent, setEpubContent] = useState<string>("");
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const handleTextSelection = useCallback(() => {
     const selection = window.getSelection();
@@ -59,19 +76,127 @@ function DocumentViewer({ documentId, url }: { documentId: string; url?: string 
     }
   }, [setSelectedText]);
 
-  if (!url) {
+  useEffect(() => {
+    if (document?.type === "EPUB" && document?.url) {
+      // Fetch EPUB content
+      fetch(document.url)
+        .then((res) => res.text())
+        .then((text) => setEpubContent(text))
+        .catch((err) => console.error("Failed to load EPUB:", err));
+    }
+  }, [document]);
+
+  function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
+    setNumPages(numPages);
+  }
+
+  if (!document?.url) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin" />
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        <FileText className="w-16 h-16 mb-4 opacity-50" />
+        <p>Document not available</p>
       </div>
     );
   }
 
+  // PDF Viewer
+  if (document.type === "PDF") {
+    return (
+      <div className="h-full flex flex-col bg-muted/30">
+        {/* PDF Toolbar */}
+        <div className="h-12 border-b bg-card flex items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+              disabled={pageNumber <= 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm">
+              Page {pageNumber} of {numPages}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
+              disabled={pageNumber >= numPages}
+            >
+              Next
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => setScale((s) => Math.max(0.5, s - 0.1))}>
+              <ZoomOut className="w-4 h-4" />
+            </Button>
+            <span className="text-sm">{Math.round(scale * 100)}%</span>
+            <Button variant="ghost" size="icon" onClick={() => setScale((s) => Math.min(2, s + 0.1))}>
+              <ZoomIn className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* PDF Content */}
+        <div className="flex-1 overflow-auto p-8" onMouseUp={handleTextSelection}>
+          <div className="flex justify-center">
+            <Document
+              file={document.url}
+              onLoadSuccess={onDocumentLoadSuccess}
+              loading={
+                <div className="flex items-center justify-center h-96">
+                  <Loader2 className="w-8 h-8 animate-spin" />
+                </div>
+              }
+              error={
+                <div className="text-center text-muted-foreground">
+                  <p>Failed to load PDF</p>
+                </div>
+              }
+            >
+              <Page
+                pageNumber={pageNumber}
+                scale={scale}
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+                className="shadow-lg"
+              />
+            </Document>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // EPUB Viewer (HTML-based rendering)
+  if (document.type === "EPUB") {
+    return (
+      <div className="h-full flex flex-col bg-muted/30">
+        <div className="flex-1 overflow-auto p-8" onMouseUp={handleTextSelection}>
+          <div className="max-w-3xl mx-auto bg-white shadow-lg rounded-lg p-8 min-h-full">
+            {epubContent ? (
+              <div
+                ref={contentRef}
+                className="prose prose-lg max-w-none"
+                dangerouslySetInnerHTML={{ __html: epubContent }}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-96">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback for other types
   return (
     <div className="h-full overflow-auto bg-muted/30 p-8" onMouseUp={handleTextSelection}>
       <div className="max-w-3xl mx-auto bg-white shadow-lg rounded-lg p-8 min-h-full">
         <iframe
-          src={url}
+          src={document.url}
           className="w-full h-full min-h-[800px] border-0"
           title="Document Viewer"
         />
@@ -126,7 +251,7 @@ function AIAssistantPanel({ documentId }: { documentId: string }) {
 
 function SummaryPanel({ documentId }: { documentId: string }) {
   const { selectedText } = useReaderStore();
-  const { summary, setSummary, isAILoading, setIsAILoading } = useAIStore();
+  const { setIsAILoading } = useAIStore();
   const [format, setFormat] = useState<"paragraph" | "bullet">("paragraph");
   const [generatedSummary, setGeneratedSummary] = useState<string | null>(null);
 
