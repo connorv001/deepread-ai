@@ -1,107 +1,169 @@
-# DeepRead AI - Intelligent Reading Companion
+# DeepRead AI 📚🤖
 
-Transform passive reading into an active, AI-enhanced learning experience.
+**Your Intelligent Reading Companion**
 
-## Features
+Transform your reading with AI-powered summaries, audio narration, and deep dives into any concept.
 
-- 📚 **Document Support**: Read PDF and EPUB files seamlessly
-- 🤖 **AI Summarization**: Get instant summaries powered by GPT-4/Claude
-- 🔊 **Text-to-Audio**: Listen to content with ElevenLabs TTS
-- 🔍 **Deep Dive**: Explore concepts with contextual information
-- 📖 **Split-Pane Interface**: Resizable reading and AI assistant panes
-- 🔐 **User Authentication**: Secure JWT-based auth with progress sync
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Node](https://img.shields.io/badge/node-20.x-green.svg)
+![TypeScript](https://img.shields.io/badge/typescript-5.x-blue.svg)
 
-## Tech Stack
+## ✨ Features
 
-### Frontend
-- Next.js 14 (App Router)
-- TypeScript
-- Tailwind CSS + shadcn/ui
-- Zustand (State Management)
-- TanStack Query
+- **📄 PDF & EPUB Support** - Upload and read documents in a clean, focused interface
+- **🧠 AI Summarization** - Get instant summaries of selected text or entire documents using GPT-4/Claude
+- **🎧 Text-to-Speech** - Convert any text to natural audio with ElevenLabs
+- **🔍 Deep Dive** - Explore concepts, get definitions, and discover related references
+- **📱 Split-Pane UI** - Read and interact with AI side-by-side
+- **☁️ Cloud Sync** - Your library and progress synced across devices
 
-### Backend
-- Express.js
-- PostgreSQL
-- Redis
-- MinIO (S3-compatible storage)
-- BullMQ (Job Queue)
-
-## Quick Start
-
-### Prerequisites
-- Node.js 20+
-- Docker & Docker Compose
-- npm or pnpm
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone <repo-url>
-cd deepread-ai
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Start Docker services:
-```bash
-npm run docker:up
-```
-
-4. Set up environment variables:
-```bash
-cp frontend/.env.example frontend/.env.local
-cp backend/.env.example backend/.env
-```
-
-5. Start development servers:
-```bash
-npm run dev
-```
-
-The application will be available at:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:4000
-- MinIO Console: http://localhost:9001
-
-## Environment Variables
-
-### Backend
-- `DATABASE_URL`: PostgreSQL connection string
-- `REDIS_URL`: Redis connection string
-- `OPENAI_API_KEY`: OpenAI API key
-- `ELEVENLABS_API_KEY`: ElevenLabs API key
-- `JWT_SECRET`: Secret for JWT tokens
-- `MINIO_ENDPOINT`: MinIO endpoint
-- `MINIO_ACCESS_KEY`: MinIO access key
-- `MINIO_SECRET_KEY`: MinIO secret key
-
-### Frontend
-- `NEXT_PUBLIC_API_URL`: Backend API URL
-
-## Project Structure
+## 🏗️ Architecture
 
 ```
 deepread-ai/
-├── frontend/           # Next.js application
+├── backend/           # Express.js API server
+│   ├── prisma/        # Database schema
+│   ├── src/
+│   │   ├── routes/    # API endpoints
+│   │   ├── services/  # Business logic
+│   │   ├── middleware/# Auth, error handling
+│   │   └── utils/     # Helpers
+│   └── package.json
+├── frontend/          # Next.js 14 app
 │   ├── app/           # App router pages
 │   ├── components/    # React components
-│   ├── lib/          # Utilities and hooks
-│   └── public/       # Static assets
-├── backend/           # Express API
-│   ├── src/
-│   │   ├── routes/   # API routes
-│   │   ├── services/ # Business logic
-│   │   ├── models/   # Database models
-│   │   └── utils/    # Utilities
-│   └── prisma/       # Database schema
-└── docker-compose.yml # Development services
+│   ├── lib/           # API client, stores
+│   └── package.json
+├── docs/              # API documentation
+└── docker-compose.yml # Infrastructure
 ```
 
-## License
+## 🚀 Quick Start
 
-MIT
+### Prerequisites
+
+- Node.js 20+
+- Docker & Docker Compose
+- API Keys: OpenAI, ElevenLabs (optional: Anthropic)
+
+### Setup
+
+1. **Clone the repo**
+   ```bash
+   git clone https://github.com/connorv001/deepread-ai.git
+   cd deepread-ai
+   ```
+
+2. **Start infrastructure**
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Setup backend**
+   ```bash
+   cd backend
+   cp .env.example .env
+   # Edit .env with your API keys
+   npm install
+   npx prisma migrate dev
+   npm run dev
+   ```
+
+4. **Setup frontend**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+5. **Open** http://localhost:3000
+
+## 📖 API Documentation
+
+See [docs/openapi.yaml](docs/openapi.yaml) for full API specification.
+
+### Key Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/register` | POST | Create account |
+| `/api/auth/login` | POST | Login |
+| `/api/documents/upload` | POST | Upload PDF/EPUB |
+| `/api/ai/summarize` | POST | AI summarization |
+| `/api/ai/deep-dive` | POST | Concept exploration |
+| `/api/audio/generate` | POST | Text-to-speech |
+
+## 🛠️ Tech Stack
+
+### Backend
+- **Runtime:** Node.js 20
+- **Framework:** Express.js
+- **Database:** PostgreSQL + Prisma ORM
+- **Cache:** Redis
+- **Storage:** MinIO (S3-compatible)
+- **Queue:** BullMQ
+- **WebSocket:** Socket.io
+
+### Frontend
+- **Framework:** Next.js 14 (App Router)
+- **Styling:** Tailwind CSS + shadcn/ui
+- **State:** Zustand
+- **Data:** TanStack Query
+
+### AI Services
+- **LLM:** OpenAI GPT-4 / Anthropic Claude
+- **TTS:** ElevenLabs
+
+## 🔧 Environment Variables
+
+```env
+# Database
+DATABASE_URL=postgresql://...
+
+# Redis
+REDIS_URL=redis://localhost:6379
+
+# Storage (MinIO)
+MINIO_ENDPOINT=localhost
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+
+# AI APIs
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+ELEVENLABS_API_KEY=...
+
+# Auth
+JWT_SECRET=your-secret
+```
+
+## 📝 Development
+
+```bash
+# Backend
+cd backend
+npm run dev        # Start dev server
+npm run typecheck  # TypeScript check
+npm run lint       # ESLint
+
+# Frontend  
+cd frontend
+npm run dev        # Start dev server
+npm run build      # Production build
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing`)
+5. Open a Pull Request
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+Built with ❤️ by the DeepRead AI team

@@ -1,0 +1,443 @@
+openapi: 3.0.3
+info:
+  title: DeepRead AI API
+  description: AI-powered reading companion API
+  version: 1.0.0
+  contact:
+    name: DeepRead AI
+servers:
+  - url: http://localhost:3001/api
+    description: Development server
+
+paths:
+  /auth/register:
+    post:
+      summary: Register new user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                name:
+                  type: string
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409':
+          description: Email already exists
+
+  /auth/login:
+    post:
+      summary: Login user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+
+  /auth/me:
+    get:
+      summary: Get current user
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /documents/upload:
+    post:
+      summary: Upload document
+      tags: [Documents]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Document uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+
+  /documents/{id}:
+    get:
+      summary: Get document
+      tags: [Documents]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Document with signed URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentWithUrl'
+        '404':
+          description: Document not found
+
+    delete:
+      summary: Delete document
+      tags: [Documents]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Document deleted
+
+  /documents/{id}/progress:
+    patch:
+      summary: Update reading progress
+      tags: [Documents]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currentPage:
+                  type: integer
+                currentChapter:
+                  type: integer
+                scrollPosition:
+                  type: integer
+                progressPercent:
+                  type: number
+      responses:
+        '200':
+          description: Progress updated
+
+  /library:
+    get:
+      summary: List user documents
+      tags: [Library]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, updatedAt, title]
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+      responses:
+        '200':
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Document'
+                  total:
+                    type: integer
+
+  /ai/summarize:
+    post:
+      summary: Summarize text
+      tags: [AI]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [documentId, type]
+              properties:
+                documentId:
+                  type: string
+                text:
+                  type: string
+                type:
+                  type: string
+                  enum: [full, selection, chapter]
+                format:
+                  type: string
+                  enum: [paragraph, bullet]
+      responses:
+        '200':
+          description: Summary generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+                  model:
+                    type: string
+                  tokensUsed:
+                    type: integer
+                  cached:
+                    type: boolean
+
+  /ai/deep-dive:
+    post:
+      summary: Deep dive into concepts
+      tags: [AI]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [documentId, text]
+              properties:
+                documentId:
+                  type: string
+                text:
+                  type: string
+                context:
+                  type: string
+      responses:
+        '200':
+          description: Concepts and references
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  concepts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        definition:
+                          type: string
+                        context:
+                          type: string
+                        related:
+                          type: array
+                          items:
+                            type: string
+                  references:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title:
+                          type: string
+                        source:
+                          type: string
+                        url:
+                          type: string
+
+  /audio/generate:
+    post:
+      summary: Generate audio from text
+      tags: [Audio]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [documentId, text]
+              properties:
+                documentId:
+                  type: string
+                text:
+                  type: string
+                pageStart:
+                  type: integer
+                pageEnd:
+                  type: integer
+      responses:
+        '202':
+          description: Audio job queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                  status:
+                    type: string
+
+  /audio/status/{jobId}:
+    get:
+      summary: Get audio job status
+      tags: [Audio]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioJob'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        token:
+          type: string
+
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        author:
+          type: string
+        type:
+          type: string
+          enum: [PDF, EPUB]
+        size:
+          type: integer
+        pageCount:
+          type: integer
+        progressPercent:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    DocumentWithUrl:
+      allOf:
+        - $ref: '#/components/schemas/Document'
+        - type: object
+          properties:
+            url:
+              type: string
+
+    AudioJob:
+      type: object
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+        progress:
+          type: integer
+        url:
+          type: string
+        duration:
+          type: integer
+        error:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
