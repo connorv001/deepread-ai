@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents    Document[]
+  aiRequests   AIRequest[]
+  audioJobs    AudioJob[]
+  settings     UserSettings?
+
+  @@map("users")
+}
+
+model UserSettings {
+  id          String @id @default(cuid())
+  userId      String @unique
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  theme       String @default("light") // light, dark, sepia
+  fontSize    Int    @default(16)
+  aiModel     String @default("gpt-4") // gpt-4, claude
+  ttsVoice    String @default("default")
+  paneRatio   Float  @default(0.6) // reading pane width ratio
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("user_settings")
+}
+
+model Document {
+  id          String @id @default(cuid())
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String
+  author      String?
+  filename    String
+  mimeType    String
+  size        Int
+  storageKey  String @unique
+  thumbnailKey String?
+  
+  type        DocumentType
+  pageCount   Int?
+  metadata    Json?
+  
+  // Reading progress
+  currentPage    Int @default(1)
+  currentChapter Int @default(0)
+  scrollPosition Int @default(0)
+  progressPercent Float @default(0)
+  
+  lastReadAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  summaries   Summary[]
+  audioJobs   AudioJob[]
+
+  @@map("documents")
+}
+
+enum DocumentType {
+  PDF
+  EPUB
+}
+
+model Summary {
+  id          String @id @default(cuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  type        SummaryType
+  content     String @db.Text
+  pageStart   Int?
+  pageEnd     Int?
+  chapterIndex Int?
+  
+  aiModel     String
+  tokensUsed  Int?
+  
+  createdAt   DateTime @default(now())
+
+  @@map("summaries")
+}
+
+enum SummaryType {
+  FULL
+  SELECTION
+  CHAPTER
+}
+
+model AIRequest {
+  id          String @id @default(cuid())
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type        AIRequestType
+  prompt      String @db.Text
+  response    String @db.Text
+  
+  aiModel     String
+  tokensUsed  Int?
+  latencyMs   Int?
+  
+  cached      Boolean @default(false)
+  createdAt   DateTime @default(now())
+
+  @@map("ai_requests")
+}
+
+enum AIRequestType {
+  SUMMARIZE
+  DEEP_DIVE
+  CHAT
+}
+
+model AudioJob {
+  id          String @id @default(cuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  status      AudioJobStatus @default(PENDING)
+  
+  textContent String @db.Text
+  voiceId     String
+  
+  storageKey  String?
+  duration    Int? // in seconds
+  
+  pageStart   Int?
+  pageEnd     Int?
+  chapterIndex Int?
+  
+  error       String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+
+  @@map("audio_jobs")
+}
+
+enum AudioJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
