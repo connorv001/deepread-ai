@@ -62,8 +62,17 @@ async function handler(
       credentials: 'include',
     });
 
-    // Get response data
-    const responseData = await response.text();
+    // Check content type to determine if response is binary
+    const responseContentType = response.headers.get('content-type') || '';
+    const isBinary = responseContentType.includes('application/pdf') || 
+                     responseContentType.includes('application/epub') ||
+                     responseContentType.includes('application/octet-stream') ||
+                     responseContentType.includes('image/');
+    
+    // Get response data - use arrayBuffer for binary, text for JSON/text
+    const responseData = isBinary 
+      ? await response.arrayBuffer()
+      : await response.text();
     
     // Create response with proper status
     const nextResponse = new NextResponse(responseData, {
