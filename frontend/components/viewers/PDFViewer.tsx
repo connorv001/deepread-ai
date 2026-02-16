@@ -189,7 +189,7 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
                       )}
                       onClick={() => goToPage(pageNum)}
                     >
-                      <Document file={url} loading="">
+                      <Document file={url} options={{ withCredentials: true }} loading="">
                         <Page
                           pageNumber={pageNum}
                           width={120}
@@ -219,6 +219,7 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
           )}
           <Document
             file={url}
+            options={{ withCredentials: true }}
             onLoadSuccess={handleDocumentLoadSuccess}
             onLoadError={handleDocumentLoadError}
             loading={
