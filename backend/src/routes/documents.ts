@@ -172,12 +172,25 @@ router.post('/:id/extract', async (req, res, next) => {
       // Extract content using new processor
       const content = await documentProcessor.extractStructuredContent(tempPath, document.mimeType);
       
+      // Sanitize text: remove null bytes and other invalid UTF-8 characters for PostgreSQL
+      const sanitizeText = (text: string): string => {
+        return text
+          .replace(/\0/g, '') // Remove null bytes
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ' '); // Replace other control chars with space
+      };
+      
+      const sanitizedText = sanitizeText(content.text);
+      const sanitizedChunks = content.chunks.map(chunk => ({
+        ...chunk,
+        content: sanitizeText(chunk.content)
+      }));
+      
       // Store extracted content in database
       await prisma.document.update({
         where: { id },
         data: {
-          extractedText: content.text,
-          chunks: content.chunks as any
+          extractedText: sanitizedText,
+          chunks: sanitizedChunks as any
         }
       });
 
@@ -188,9 +201,9 @@ router.post('/:id/extract', async (req, res, next) => {
         status: 'success',
         data: {
           documentId: id,
-          textLength: content.text.length,
-          chunksCount: content.chunks.length,
-          preview: content.text.substring(0, 500) + '...'
+          textLength: sanitizedText.length,
+          chunksCount: sanitizedChunks.length,
+          preview: sanitizedText.substring(0, 500) + '...'
         }
       });
     } catch (extractError) {

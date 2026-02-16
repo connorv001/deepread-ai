@@ -264,13 +264,72 @@ export class DocumentProcessor {
       type: 'paragraph' | 'heading' | 'list' | 'quote';
     }>;
   }> {
-    const extracted = await this.extractPDFContent(filePath);
+    let extracted: ExtractedContent;
+    
+    if (mimeType === 'application/epub+zip') {
+      extracted = await this.extractEPUBContent(filePath);
+    } else {
+      extracted = await this.extractPDFContent(filePath);
+    }
+    
     const chunks = this.createChunks(extracted);
     
     return {
       text: extracted.text,
       chunks
     };
+  }
+
+  /**
+   * Extract text content from EPUB
+   */
+  private async extractEPUBContent(filePath: string): Promise<ExtractedContent> {
+    try {
+      const AdmZip = require('adm-zip');
+      const cheerio = require('cheerio');
+      
+      const zip = new AdmZip(filePath);
+      const entries = zip.getEntries();
+      
+      let fullText = '';
+      const pages: PageContent[] = [];
+      let pageNum = 0;
+      
+      // Find and extract HTML/XHTML content files
+      for (const entry of entries) {
+        const name = entry.entryName.toLowerCase();
+        if (name.endsWith('.html') || name.endsWith('.xhtml') || name.endsWith('.htm')) {
+          const content = entry.getData().toString('utf8');
+          const $ = cheerio.load(content);
+          
+          // Remove scripts and styles
+          $('script, style').remove();
+          
+          // Get text content
+          const text = $('body').text().trim();
+          if (text) {
+            pageNum++;
+            fullText += text + '\n\n';
+            pages.push({
+              pageNumber: pageNum,
+              text: text,
+              hasImages: false
+            });
+          }
+        }
+      }
+      
+      return {
+        text: fullText.trim(),
+        pages,
+        totalPages: pageNum,
+        isScanned: false,
+        confidence: 0.9
+      };
+    } catch (error) {
+      console.error('EPUB extraction error:', error);
+      throw new Error(`Failed to extract EPUB content: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**
