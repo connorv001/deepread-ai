@@ -37,7 +37,29 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
   const [error, setError] = useState<string | null>(null);
   const [showThumbnails, setShowThumbnails] = useState<boolean>(false);
   const [pageInputValue, setPageInputValue] = useState<string>("1");
+  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch PDF with credentials
+  useEffect(() => {
+    const fetchPdf = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await fetch(url, { credentials: 'include' });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.arrayBuffer();
+        setPdfData(data);
+      } catch (err) {
+        console.error('Failed to fetch PDF:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load PDF');
+        setIsLoading(false);
+      }
+    };
+    fetchPdf();
+  }, [url]);
 
   const handleDocumentLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
@@ -189,7 +211,7 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
                       )}
                       onClick={() => goToPage(pageNum)}
                     >
-                      <Document file={url} options={{ withCredentials: true }} loading="">
+                      <Document file={pdfData ? { data: pdfData } : null} loading="">
                         <Page
                           pageNumber={pageNum}
                           width={120}
@@ -212,14 +234,20 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
           className="flex-1 overflow-auto flex justify-center p-4"
           onMouseUp={handleTextSelection}
         >
-          {isLoading && (
+          {!pdfData && isLoading && (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="w-8 h-8 animate-spin" />
             </div>
           )}
+          {error && (
+            <div className="flex flex-col items-center justify-center h-full text-destructive">
+              <FileText className="w-16 h-16 mb-4 opacity-50" />
+              <p>{error}</p>
+            </div>
+          )}
+          {pdfData && (
           <Document
-            file={url}
-            options={{ withCredentials: true }}
+            file={{ data: pdfData }}
             onLoadSuccess={handleDocumentLoadSuccess}
             onLoadError={handleDocumentLoadError}
             loading={
@@ -242,6 +270,7 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
               }
             />
           </Document>
+          )}
         </div>
       </div>
     </div>
