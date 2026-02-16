@@ -2,22 +2,27 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import fileUpload from 'express-fileupload';
 import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
 
-import { authRouter } from './routes/auth';
+// NEW: Cookie-based auth routes
+import { authRouter } from './routes/auth-cookies';
 import { documentsRouter } from './routes/documents';
 import { aiRouter } from './routes/ai';
 import { audioRouter } from './routes/audio';
 import { libraryRouter } from './routes/library';
 import { settingsRouter } from './routes/settings';
 import { errorHandler } from './middleware/errorHandler';
-import { authMiddleware } from './middleware/auth';
+// NEW: Cookie-based auth middleware
+import { authMiddleware } from './middleware/auth-cookies';
+import { correlationIdMiddleware } from './middleware/correlationId';
 import { setupAudioQueue } from './services/audioQueue';
 import { setupWebSocketHandlers } from './services/websocket';
+import { logger } from './utils/logger';
 
 dotenv.config();
 
@@ -26,9 +31,9 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? ['https://deepread.ai', 'https://app.deepread.ai']
-      : ['http://localhost:3000'],
-    credentials: true
+      ? ['https://deepread.ai', 'https://app.deepread.ai', 'https://deepreader.shubham.wtf']
+      : ['http://localhost:3000', 'http://localhost:3090'],
+    credentials: true // IMPORTANT: Allow cookies
   }
 });
 
@@ -39,12 +44,16 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(helmet());
+// Correlation ID tracking (must be first to track all requests)
+app.use(correlationIdMiddleware);
+// CORS with credentials for cookies
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? ['https://deepread.ai', 'https://app.deepread.ai']
-    : ['http://localhost:3000'],
-  credentials: true
+    ? ['https://deepread.ai', 'https://app.deepread.ai', 'https://deepreader.shubham.wtf']
+    : ['http://localhost:3000', 'http://localhost:3090'],
+  credentials: true // IMPORTANT: Allow cookies
 }));
+app.use(cookieParser()); // NEW: Parse cookies
 app.use(express.json({ limit: '10mb' }));
 app.use(fileUpload({
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
@@ -60,7 +69,7 @@ app.get('/health', (req, res) => {
 // Public routes
 app.use('/api/auth', authRouter);
 
-// Protected routes
+// Protected routes (now use cookie-based auth)
 app.use('/api/documents', authMiddleware, documentsRouter);
 app.use('/api/ai', authMiddleware, aiRouter);
 app.use('/api/audio', authMiddleware, audioRouter);
@@ -78,16 +87,27 @@ setupAudioQueue();
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down gracefully');
+  logger.info('SIGTERM received, shutting down gracefully');
   await prisma.$disconnect();
   await redis.quit();
   httpServer.close(() => {
-    console.log('Server closed');
+    logger.info('Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', async () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  await prisma.$disconnect();
+  await redis.quit();
+  httpServer.close(() => {
+    logger.info('Server closed');
     process.exit(0);
   });
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`🚀 DeepRead AI API server running on port ${PORT}`);
-  console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`🚀 DeepRead AI API server running on port ${PORT}`);
+  logger.info(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`🔐 Using httpOnly cookie authentication`);
 });

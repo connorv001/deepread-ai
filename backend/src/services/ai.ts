@@ -1,4 +1,6 @@
 import OpenAI from 'openai';
+import { aiModelFallback } from './aiResilience';
+import { logger } from '../utils/logger';
 
 // OpenRouter client - OpenAI compatible API
 const openrouter = new OpenAI({
@@ -45,12 +47,52 @@ function getModel(modelPreference: string): string {
 }
 
 export class AIService {
+  /**
+   * Stream summarize - returns an async generator for SSE
+   */
+  async *streamSummarize(params: SummarizeParams): AsyncGenerator<string, void, unknown> {
+    const formatInstruction = params.format === 'bullet'
+      ? 'Provide the summary as bullet points.'
+      : 'Provide the summary as a concise paragraph.';
+
+    const typeInstruction = {
+      full: 'Summarize the entire document.',
+      selection: 'Summarize the selected text.',
+      chapter: 'Summarize this chapter.'
+    }[params.type];
+
+    const prompt = `${typeInstruction} ${formatInstruction}\n\nText:\n${params.text || 'Full document'}`;
+    const model = getModel(params.model);
+
+    const stream = await openrouter.chat.completions.create({
+      model,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a helpful reading assistant that provides clear, concise summaries.'
+        },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 1000,
+      stream: true
+    });
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) {
+        yield content;
+      }
+    }
+  }
+
   async summarize(params: SummarizeParams): Promise<{
     content: string;
     tokensUsed: number;
+    modelUsed?: string;
   }> {
-    const formatInstruction = params.format === 'bullet' 
-      ? 'Provide the summary as bullet points.' 
+    const formatInstruction = params.format === 'bullet'
+      ? 'Provide the summary as bullet points.'
       : 'Provide the summary as a concise paragraph.';
 
     const typeInstruction = {
@@ -61,24 +103,37 @@ export class AIService {
 
     const prompt = `${typeInstruction} ${formatInstruction}\n\nText:\n${params.text || 'Full document'}`;
 
-    const model = getModel(params.model);
+    const preferredModel = getModel(params.model);
 
-    const response = await openrouter.chat.completions.create({
-      model,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful reading assistant that provides clear, concise summaries.'
-        },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.3,
-      max_tokens: 1000
-    });
+    // Use fallback system
+    const { result, modelUsed } = await aiModelFallback.executeWithFallback(
+      async (model) => {
+        const response = await openrouter.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful reading assistant that provides clear, concise summaries.'
+            },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.3,
+          max_tokens: 1000
+        });
+
+        return {
+          content: response.choices[0]?.message?.content || 'No summary generated',
+          tokensUsed: response.usage?.total_tokens || 0
+        };
+      },
+      preferredModel
+    );
+
+    logger.info(`Summary generated with model: ${modelUsed}`);
 
     return {
-      content: response.choices[0]?.message?.content || 'No summary generated',
-      tokensUsed: response.usage?.total_tokens || 0
+      ...result,
+      modelUsed
     };
   }
 
@@ -95,55 +150,67 @@ export class AIService {
       url?: string;
     }>;
     tokensUsed: number;
+    modelUsed?: string;
   }> {
     const prompt = `Analyze the following text and identify key concepts, provide definitions, and suggest related references.\n\nContext: ${params.context || 'General reading'}\n\nText:\n${params.text}\n\nRespond in JSON format with:\n- concepts: array of {name, definition, context, related[]}\n- references: array of {title, source, url?}`;
 
-    const model = getModel(params.model);
+    const preferredModel = getModel(params.model);
 
-    const response = await openrouter.chat.completions.create({
-      model,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a knowledgeable research assistant. Provide accurate, educational information.'
-        },
-        { role: 'user', content: prompt }
-      ],
-      temperature: 0.3,
-      max_tokens: 2000
-    });
+    // Use fallback system
+    const { result, modelUsed } = await aiModelFallback.executeWithFallback(
+      async (model) => {
+        const response = await openrouter.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a knowledgeable research assistant. Provide accurate, educational information.'
+            },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.3,
+          max_tokens: 2000
+        });
 
-    const content = response.choices[0]?.message?.content || '{}';
-    // Try to extract JSON if wrapped in markdown
-    const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || content.match(/{[\s\S]*}/);
-    const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
-    
-    try {
-      const parsed = JSON.parse(jsonStr);
-      return {
-        concepts: parsed.concepts || [],
-        references: parsed.references || [],
-        tokensUsed: response.usage?.total_tokens || 0
-      };
-    } catch (e) {
-      // Fallback if JSON parsing fails
-      return {
-        concepts: [{ 
-          name: 'Analysis', 
-          definition: content.slice(0, 500),
-          context: 'Generated analysis',
-          related: []
-        }],
-        references: [],
-        tokensUsed: response.usage?.total_tokens || 0
-      };
-    }
+        const content = response.choices[0]?.message?.content || '{}';
+        const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || content.match(/{[\s\S]*}/);
+        const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          return {
+            concepts: parsed.concepts || [],
+            references: parsed.references || [],
+            tokensUsed: response.usage?.total_tokens || 0
+          };
+        } catch (e) {
+          return {
+            concepts: [{
+              name: 'Analysis',
+              definition: content.slice(0, 500),
+              context: 'Generated analysis',
+              related: []
+            }],
+            references: [],
+            tokensUsed: response.usage?.total_tokens || 0
+          };
+        }
+      },
+      preferredModel
+    );
+
+    logger.info(`Deep dive generated with model: ${modelUsed}`);
+
+    return {
+      ...result,
+      modelUsed
+    };
   }
 
-  async chat(params: ChatParams): Promise<{
-    content: string;
-    tokensUsed: number;
-  }> {
+  /**
+   * Stream chat - returns an async generator for SSE
+   */
+  async *streamChat(params: ChatParams): AsyncGenerator<string, void, unknown> {
     const messages = [
       {
         role: 'system' as const,
@@ -155,16 +222,61 @@ export class AIService {
 
     const model = getModel(params.model);
 
-    const response = await openrouter.chat.completions.create({
+    const stream = await openrouter.chat.completions.create({
       model,
       messages,
       temperature: 0.7,
-      max_tokens: 1500
+      max_tokens: 1500,
+      stream: true
     });
 
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) {
+        yield content;
+      }
+    }
+  }
+
+  async chat(params: ChatParams): Promise<{
+    content: string;
+    tokensUsed: number;
+    modelUsed?: string;
+  }> {
+    const messages = [
+      {
+        role: 'system' as const,
+        content: 'You are a helpful reading assistant. Answer questions about the document being read.'
+      },
+      ...(params.history || []),
+      { role: 'user' as const, content: params.message }
+    ];
+
+    const preferredModel = getModel(params.model);
+
+    // Use fallback system
+    const { result, modelUsed } = await aiModelFallback.executeWithFallback(
+      async (model) => {
+        const response = await openrouter.chat.completions.create({
+          model,
+          messages,
+          temperature: 0.7,
+          max_tokens: 1500
+        });
+
+        return {
+          content: response.choices[0]?.message?.content || 'No response generated',
+          tokensUsed: response.usage?.total_tokens || 0
+        };
+      },
+      preferredModel
+    );
+
+    logger.info(`Chat response generated with model: ${modelUsed}`);
+
     return {
-      content: response.choices[0]?.message?.content || 'No response generated',
-      tokensUsed: response.usage?.total_tokens || 0
+      ...result,
+      modelUsed
     };
   }
 }

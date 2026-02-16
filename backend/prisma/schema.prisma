@@ -57,6 +57,10 @@ model Document {
   pageCount   Int?
   metadata    Json?
   
+  // Extracted content
+  extractedText String? @db.Text
+  chunks        Json?
+  
   // Reading progress
   currentPage    Int @default(1)
   currentChapter Int @default(0)

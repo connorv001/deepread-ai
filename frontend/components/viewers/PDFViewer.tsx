@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
+import { FixedSizeList as List } from "react-window";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import {
@@ -166,31 +167,42 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Thumbnail Sidebar */}
-        {showThumbnails && (
-          <div className="w-40 border-r bg-card overflow-y-auto p-2 space-y-2">
-            {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
-              <div
-                key={pageNum}
-                className={cn(
-                  "cursor-pointer rounded border-2 overflow-hidden transition-colors",
-                  pageNum === currentPage
-                    ? "border-primary"
-                    : "border-transparent hover:border-muted-foreground/30"
-                )}
-                onClick={() => goToPage(pageNum)}
-              >
-                <Document file={url} loading="">
-                  <Page
-                    pageNumber={pageNum}
-                    width={120}
-                    renderTextLayer={false}
-                    renderAnnotationLayer={false}
-                  />
-                </Document>
-                <div className="text-center text-xs py-1 bg-muted">{pageNum}</div>
-              </div>
-            ))}
+        {/* Virtualized Thumbnail Sidebar */}
+        {showThumbnails && numPages > 0 && (
+          <div className="w-40 border-r bg-card">
+            <List
+              height={window.innerHeight - 48} // Account for toolbar
+              itemCount={numPages}
+              itemSize={180} // Height of each thumbnail
+              width={160}
+            >
+              {({ index, style }) => {
+                const pageNum = index + 1;
+                return (
+                  <div style={style} className="p-2">
+                    <div
+                      className={cn(
+                        "cursor-pointer rounded border-2 overflow-hidden transition-colors",
+                        pageNum === currentPage
+                          ? "border-primary"
+                          : "border-transparent hover:border-muted-foreground/30"
+                      )}
+                      onClick={() => goToPage(pageNum)}
+                    >
+                      <Document file={url} loading="">
+                        <Page
+                          pageNumber={pageNum}
+                          width={120}
+                          renderTextLayer={false}
+                          renderAnnotationLayer={false}
+                        />
+                      </Document>
+                      <div className="text-center text-xs py-1 bg-muted">{pageNum}</div>
+                    </div>
+                  </div>
+                );
+              }}
+            </List>
           </div>
         )}
 

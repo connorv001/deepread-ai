@@ -22,8 +22,10 @@ export default function RegisterPage() {
   const registerMutation = useMutation({
     mutationFn: () => authApi.register(email, password, name),
     onSuccess: (response) => {
-      const { user, token } = response.data.data;
-      setAuth(user, token);
+      // Cookie is automatically set by BFF layer (httpOnly)
+      // Just extract user from response
+      const { user } = response.data.data;
+      setAuth(user);
       router.push("/library");
     },
   });
@@ -55,6 +57,7 @@ export default function RegisterPage() {
                 placeholder="Your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                disabled={registerMutation.isPending}
               />
             </div>
             <div className="space-y-2">
@@ -66,6 +69,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={registerMutation.isPending}
               />
             </div>
             <div className="space-y-2">
@@ -77,6 +81,7 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
+                disabled={registerMutation.isPending}
               />
             </div>
             {registerMutation.isError && (

@@ -1,24 +1,31 @@
 {
-  "name": "deepread-ai",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Intelligent Reading Companion with AI-powered features",
-  "workspaces": [
-    "frontend",
-    "backend"
-  ],
-  "scripts": {
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
-    "dev:frontend": "cd frontend && npm run dev",
-    "dev:backend": "cd backend && npm run dev",
-    "build": "npm run build:frontend && npm run build:backend",
-    "build:frontend": "cd frontend && npm run build",
-    "build:backend": "cd backend && npm run build",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f"
+  "name": "deepread-project",
+  "version": "1.0.0",
+  "description": "**Your Intelligent Reading Companion**",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
   },
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:report": "playwright show-report"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/connorv001/deepread-ai.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/connorv001/deepread-ai/issues"
+  },
+  "homepage": "https://github.com/connorv001/deepread-ai#readme",
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.2.3"
   }
 }

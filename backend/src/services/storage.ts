@@ -68,6 +68,11 @@ export class StorageService {
   async getFileStream(key: string): Promise<any> {
     return await minioClient.getObject(BUCKET_NAME, key);
   }
+
+  async downloadFile(key: string, destinationPath: string): Promise<void> {
+    await this.ensureBucket();
+    await minioClient.fGetObject(BUCKET_NAME, key, destinationPath);
+  }
 }
 
 export const storageService = new StorageService();

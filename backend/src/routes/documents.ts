@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import fs from 'fs';
 import { prisma, redis } from '../index';
 import { AppError } from '../middleware/errorHandler';
 import { storageService } from '../services/storage';
@@ -114,6 +115,161 @@ router.patch('/:id/progress', async (req, res, next) => {
   }
 });
 
+// Proxy document for CORS-free access
+router.get('/:id/content', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+
+    const document = await prisma.document.findFirst({
+      where: { id, userId }
+    });
+
+    if (!document) {
+      throw new AppError(404, 'Document not found');
+    }
+
+    // Stream file from storage
+    const stream = await storageService.getFileStream(document.storageKey);
+    
+    // Set appropriate headers for inline display
+    res.setHeader('Content-Type', document.mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(document.filename)}"`);
+    
+    // Handle stream errors
+    stream.on('error', (err: any) => {
+      console.error('Stream error:', err);
+      if (!res.headersSent) {
+        next(new AppError(500, 'Error streaming document'));
+      }
+    });
+    
+    stream.pipe(res);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Extract text from document
+router.post('/:id/extract', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+
+    const document = await prisma.document.findFirst({
+      where: { id, userId }
+    });
+
+    if (!document) {
+      throw new AppError(404, 'Document not found');
+    }
+
+    // Download file to temp location
+    const tempPath = `/tmp/${document.storageKey.replace(/\//g, '-')}`;
+    await storageService.downloadFile(document.storageKey, tempPath);
+
+    try {
+      // Extract content using new processor
+      const content = await documentProcessor.extractStructuredContent(tempPath, document.mimeType);
+      
+      // Store extracted content in database
+      await prisma.document.update({
+        where: { id },
+        data: {
+          extractedText: content.text,
+          chunks: content.chunks as any
+        }
+      });
+
+      // Clean up temp file
+      fs.unlinkSync(tempPath);
+
+      res.json({
+        status: 'success',
+        data: {
+          documentId: id,
+          textLength: content.text.length,
+          chunksCount: content.chunks.length,
+          preview: content.text.substring(0, 500) + '...'
+        }
+      });
+    } catch (extractError) {
+      // Clean up temp file on error
+      if (fs.existsSync(tempPath)) {
+        fs.unlinkSync(tempPath);
+      }
+      throw extractError;
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get extracted text from document
+router.get('/:id/text', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+       const { page, format = 'text' } = req.query;
+
+    const document = await prisma.document.findFirst({
+      where: { id, userId },
+      select: {
+        id: true,
+        title: true,
+        extractedText: true,
+        chunks: true,
+        pageCount: true
+      }
+    });
+
+    if (!document) {
+      throw new AppError(404, 'Document not found');
+    }
+
+    // If no extracted text, return error
+    if (!document.extractedText) {
+      throw new AppError(400, 'Text not extracted yet. Call POST /:id/extract first');
+    }
+
+    // Filter by page if requested
+    let text = document.extractedText;
+    let chunks = document.chunks as any[] || [];
+    
+    if (page) {
+      const pageNum = parseInt(page as string);
+      chunks = chunks.filter(c => c.page === pageNum);
+    }
+
+    // Format response
+    if (format === 'chunks') {
+      res.json({
+        status: 'success',
+        data: {
+          documentId: id,
+          title: document.title,
+          pageCount: document.pageCount,
+          chunks
+        }
+      });
+    } else {
+      res.json({
+        status: 'success',
+        data: {
+          documentId: id,
+          title: document.title,
+          pageCount: document.pageCount,
+          text,
+          wordCount: text.split(/\s+/).length,
+          charCount: text.length
+        }
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Delete document
 router.delete('/:id', async (req, res, next) => {
   try {
@@ -141,26 +297,3 @@ router.delete('/:id', async (req, res, next) => {
 });
 
 export { router as documentsRouter };
-
-// Proxy document for CORS-free access
-router.get('/:id/content', async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user!.id;
-
-    const document = await prisma.document.findFirst({
-      where: { id, userId }
-    });
-
-    if (!document) {
-      throw new AppError(404, 'Document not found');
-    }
-
-    // Stream file from storage
-    const stream = await storageService.getFileStream(document.storageKey);
-    res.setHeader('Content-Type', document.mimeType);
-    stream.pipe(res);
-  } catch (error) {
-    next(error);
-  }
-});

@@ -1,9 +1,19 @@
 import winston from 'winston';
+import { getCorrelationId } from '../middleware/correlationId';
 
 const { combine, timestamp, printf, colorize, errors } = winston.format;
 
-const logFormat = printf(({ level, message, timestamp, stack }) => {
-  return `${timestamp} [${level}]: ${stack || message}`;
+// Enhanced log format with correlation IDs
+const logFormat = printf(({ level, message, timestamp, stack, ...metadata }) => {
+  const correlationId = getCorrelationId();
+  const corrId = correlationId ? `[${correlationId.slice(0, 8)}]` : '[--------]';
+
+  // Include metadata if present
+  const metaStr = Object.keys(metadata).length > 0
+    ? ` ${JSON.stringify(metadata)}`
+    : '';
+
+  return `${timestamp} ${corrId} [${level}]: ${stack || message}${metaStr}`;
 });
 
 export const logger = winston.createLogger({

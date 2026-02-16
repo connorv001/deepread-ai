@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -30,20 +30,44 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { libraryApi, documentsApi } from "@/lib/api";
+import { libraryApi, documentsApi, authApi } from "@/lib/api";
 import { formatBytes } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
+import { useState } from "react";
 
 export default function LibraryPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const logout = useAuthStore((state) => state.logout);
+  const setAuth = useAuthStore((state) => state.setAuth);
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const setLoading = useAuthStore((state) => state.setLoading);
   const [searchQuery, setSearchQuery] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
-  const { data: documents, isLoading } = useQuery({
+  // Fetch user on mount (cookie-based auth via BFF)
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await authApi.me();
+        setAuth(response.data.data.user);
+      } catch (error) {
+        // Not authenticated, middleware will redirect
+        console.log('Auth check failed');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkAuth();
+  }, [setAuth, setLoading]);
+
+  const { data: documents, isLoading: isDocsLoading } = useQuery({
     queryKey: ["documents", searchQuery],
     queryFn: () => libraryApi.list({ search: searchQuery }).then((r) => r.data.data.documents),
+    enabled: isAuthenticated, // Only fetch when authenticated
   });
 
   const uploadMutation = useMutation({
@@ -69,10 +93,24 @@ export default function LibraryPage() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch (e) {
+      // Ignore errors
+    }
     logout();
     router.push("/login");
   };
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -96,6 +134,11 @@ export default function LibraryPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+            {user && (
+              <span className="text-sm text-muted-foreground hidden md:inline">
+                {user.email}
+              </span>
+            )}
             <Button variant="ghost" onClick={handleLogout}>
               Logout
             </Button>
@@ -126,7 +169,7 @@ export default function LibraryPage() {
           </Button>
         </div>
 
-        {isLoading ? (
+        {isDocsLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>

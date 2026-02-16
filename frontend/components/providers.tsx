@@ -2,7 +2,8 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { registerServiceWorker } from "@/lib/serviceWorker";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -16,6 +17,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       })
   );
+
+  // Register service worker on mount
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') {
+      registerServiceWorker();
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

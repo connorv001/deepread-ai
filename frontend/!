@@ -1,0 +1,15 @@
+
+> Build error occurred
+Error: ENOENT: no such file or directory, open '/data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/.next/static/7UzFsn17xF3XHEwQnorCU/_ssgManifest.js'
+    at async open (node:internal/fs/promises:642:25)
+    at async Object.writeFile (node:internal/fs/promises:1249:14)
+    at async writeFileUtf8 (/data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/node_modules/next/dist/build/index.js:156:5)
+    at async writeClientSsgManifest (/data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/node_modules/next/dist/build/index.js:177:5)
+    at async /data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/node_modules/next/dist/build/index.js:2098:17
+    at async Span.traceAsyncFn (/data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/node_modules/next/dist/trace/trace.js:154:20)
+    at async build (/data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/node_modules/next/dist/build/index.js:368:9) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/.next/static/7UzFsn17xF3XHEwQnorCU/_ssgManifest.js'
+}

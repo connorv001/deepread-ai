@@ -1,0 +1,2 @@
+This is not a valid PDF or EPUB file.
+It should be rejected by the upload validation.
