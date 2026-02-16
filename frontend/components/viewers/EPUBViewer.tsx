@@ -46,6 +46,7 @@ export function EPUBViewer({ url, onTextSelection, onChapterChange }: EPUBViewer
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [epubData, setEpubData] = useState<ArrayBuffer | null>(null);
   const [toc, setToc] = useState<NavItem[]>([]);
   const [currentChapter, setCurrentChapter] = useState<string>("");
   const [showToc, setShowToc] = useState<boolean>(false);
@@ -54,9 +55,35 @@ export function EPUBViewer({ url, onTextSelection, onChapterChange }: EPUBViewer
   const [atStart, setAtStart] = useState<boolean>(true);
   const [atEnd, setAtEnd] = useState<boolean>(false);
 
-  // Initialize book
+  // Fetch EPUB with credentials
   useEffect(() => {
-    if (!viewerRef.current || !url) return;
+    let cancelled = false;
+    const fetchEpub = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        setEpubData(null);
+        const response = await fetch(url, { credentials: 'include' });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const buffer = await response.arrayBuffer();
+        if (cancelled) return;
+        setEpubData(buffer);
+      } catch (err) {
+        if (cancelled) return;
+        console.error('Failed to fetch EPUB:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load EPUB');
+        setIsLoading(false);
+      }
+    };
+    fetchEpub();
+    return () => { cancelled = true; };
+  }, [url]);
+
+  // Initialize book when EPUB data is loaded
+  useEffect(() => {
+    if (!viewerRef.current || !epubData) return;
 
     const initBook = async () => {
       try {
@@ -71,8 +98,9 @@ export function EPUBViewer({ url, onTextSelection, onChapterChange }: EPUBViewer
           bookRef.current.destroy();
         }
 
-        // Create new book instance
-        const book = ePub(url);
+        // Create new book instance from ArrayBuffer
+        // @ts-ignore - epub.js accepts ArrayBuffer but types are incomplete
+        const book = ePub(epubData);
         bookRef.current = book;
 
         // Wait for book to be ready
@@ -146,7 +174,7 @@ export function EPUBViewer({ url, onTextSelection, onChapterChange }: EPUBViewer
         bookRef.current.destroy();
       }
     };
-  }, [url]);
+  }, [epubData]);
 
   // Update font size
   useEffect(() => {
