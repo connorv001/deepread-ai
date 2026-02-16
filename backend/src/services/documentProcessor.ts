@@ -74,7 +74,7 @@ export class DocumentProcessor {
       
     } catch (error) {
       console.error('PDF extraction error:', error);
-      throw new Error(`Failed to extract PDF content: ${error.message}`);
+      throw new Error(`Failed to extract PDF content: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
