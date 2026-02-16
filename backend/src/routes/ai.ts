@@ -38,8 +38,25 @@ router.post('/summarize', async (req, res, next) => {
     const params = summarizeSchema.parse(req.body);
     const userId = req.user!.id;
 
+    // Fetch document with extracted text if no text provided
+    let textToSummarize = params.text;
+    if (!textToSummarize || params.type === 'full') {
+      const document = await prisma.document.findFirst({
+        where: { id: params.documentId, userId },
+        select: { extractedText: true }
+      });
+      
+      if (document?.extractedText) {
+        textToSummarize = document.extractedText;
+      }
+    }
+
+    if (!textToSummarize) {
+      throw new AppError(400, 'No text available to summarize. Please extract text first.');
+    }
+
     // Check cache
-    const cacheKey = `summary:${params.documentId}:${params.type}:${params.text?.slice(0, 100) || 'full'}`;
+    const cacheKey = `summary:${params.documentId}:${params.type}:${textToSummarize.slice(0, 100) || 'full'}`;
     const cached = await redis.get(cacheKey);
     
     if (cached) {
@@ -61,7 +78,7 @@ router.post('/summarize', async (req, res, next) => {
     // Generate summary
     const startTime = Date.now();
     const summary = await aiService.summarize({
-      text: params.text,
+      text: textToSummarize,
       type: params.type,
       format: params.format,
       model
@@ -165,6 +182,21 @@ router.post('/chat', async (req, res, next) => {
     const params = chatSchema.parse(req.body);
     const userId = req.user!.id;
 
+    // Fetch document with extracted text for context
+    const document = await prisma.document.findFirst({
+      where: { id: params.documentId, userId },
+      select: { 
+        id: true, 
+        title: true, 
+        extractedText: true,
+        chunks: true
+      }
+    });
+
+    if (!document) {
+      throw new AppError(404, 'Document not found');
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { settings: true }
@@ -172,10 +204,17 @@ router.post('/chat', async (req, res, next) => {
 
     const model = user?.settings?.aiModel || 'gpt-4';
 
+    // Build context from extracted text (limit to ~50k chars for context window)
+    const documentContext = document.extractedText 
+      ? document.extractedText.substring(0, 50000)
+      : '';
+
     const response = await aiService.chat({
       message: params.message,
       history: params.history,
-      model
+      model,
+      documentContext,
+      documentTitle: document.title
     });
 
     await prisma.aIRequest.create({

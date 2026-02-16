@@ -40,6 +40,8 @@ interface ChatParams {
   message: string;
   history?: Array<{ role: 'user' | 'assistant'; content: string }>;
   model: string;
+  documentContext?: string;
+  documentTitle?: string;
 }
 
 function getModel(modelPreference: string): string {
@@ -243,10 +245,29 @@ export class AIService {
     tokensUsed: number;
     modelUsed?: string;
   }> {
+    // Build system message with document context
+    let systemContent = 'You are a helpful reading assistant. Answer questions about the document being read.';
+    
+    if (params.documentContext) {
+      systemContent = `You are a helpful reading assistant for the document "${params.documentTitle || 'Document'}".
+      
+Answer questions based on the following document content:
+
+---DOCUMENT START---
+${params.documentContext}
+---DOCUMENT END---
+
+Instructions:
+- Answer questions specifically about this document's content
+- Quote relevant passages when helpful
+- If the answer is not in the document, say so clearly
+- Be concise but thorough`;
+    }
+
     const messages = [
       {
         role: 'system' as const,
-        content: 'You are a helpful reading assistant. Answer questions about the document being read.'
+        content: systemContent
       },
       ...(params.history || []),
       { role: 'user' as const, content: params.message }
