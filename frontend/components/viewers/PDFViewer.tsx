@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { FixedSizeList as List } from "react-window";
 import "react-pdf/dist/Page/AnnotationLayer.css";
@@ -37,29 +37,45 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
   const [error, setError] = useState<string | null>(null);
   const [showThumbnails, setShowThumbnails] = useState<boolean>(false);
   const [pageInputValue, setPageInputValue] = useState<string>("1");
-  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
+  const [pdfData, setPdfData] = useState<Uint8Array | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Fetch PDF with credentials
   useEffect(() => {
+    let cancelled = false;
     const fetchPdf = async () => {
       try {
         setIsLoading(true);
         setError(null);
+        setPdfData(null);
         const response = await fetch(url, { credentials: 'include' });
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        const data = await response.arrayBuffer();
+        const buffer = await response.arrayBuffer();
+        if (cancelled) return;
+        // Create a copy as Uint8Array to prevent ArrayBuffer detachment issues
+        const data = new Uint8Array(buffer);
         setPdfData(data);
       } catch (err) {
+        if (cancelled) return;
         console.error('Failed to fetch PDF:', err);
         setError(err instanceof Error ? err.message : 'Failed to load PDF');
         setIsLoading(false);
       }
     };
     fetchPdf();
+    return () => { cancelled = true; };
   }, [url]);
+
+  // Create a stable file object for react-pdf
+  // Must create a fresh ArrayBuffer copy to avoid detachment issues with workers
+  const pdfFile = useMemo(() => {
+    if (!pdfData) return null;
+    // Create a fresh copy of the buffer for PDF.js worker
+    const copy = pdfData.slice(0);
+    return { data: copy };
+  }, [pdfData]);
 
   const handleDocumentLoadSuccess = useCallback(
     ({ numPages }: { numPages: number }) => {
@@ -211,7 +227,7 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
                       )}
                       onClick={() => goToPage(pageNum)}
                     >
-                      <Document file={pdfData ? { data: pdfData } : null} loading="">
+                      <Document file={pdfFile} loading="">
                         <Page
                           pageNumber={pageNum}
                           width={120}
@@ -245,9 +261,9 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
               <p>{error}</p>
             </div>
           )}
-          {pdfData && (
+          {pdfFile && (
           <Document
-            file={{ data: pdfData }}
+            file={pdfFile}
             onLoadSuccess={handleDocumentLoadSuccess}
             onLoadError={handleDocumentLoadError}
             loading={
