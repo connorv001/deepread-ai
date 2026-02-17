@@ -155,44 +155,77 @@ export class DocumentProcessor {
 
   /**
    * Extract text using OCR for scanned PDFs
-   * Uses pdf2image + tesseract or similar approach
+   * Uses pdftoppm + tesseract
    */
   private async extractWithOCR(filePath: string): Promise<ExtractedContent> {
     try {
       // Check if we have OCR tools available
       const hasTesseract = await this.checkCommand('tesseract --version');
-      const hasPdfImages = await this.checkCommand('pdfimages -version');
       
       if (!hasTesseract) {
         console.warn('Tesseract not installed. Install with: apt-get install tesseract-ocr');
         return {
-          text: '',
+          text: 'OCR extraction requires Tesseract. Please install tesseract-ocr.',
           pages: [],
           totalPages: 0,
           isScanned: true,
           confidence: 0
         };
       }
+
+      // Get number of pages
+      const { stdout: pdfInfo } = await execAsync(`pdfinfo "${filePath}" | grep Pages:`);
+      const totalPages = parseInt(pdfInfo.split(':')[1].trim()) || 1;
       
-      // Convert PDF to images and OCR each page
       const pages: PageContent[] = [];
       let fullText = '';
       
-      // For now, return placeholder - full OCR implementation would require
-      // pdf2image conversion and tesseract processing
-      console.log('OCR processing would happen here with Tesseract');
+      // Process first 5 pages only for performance (or all if document is small)
+      const pagesToProcess = Math.min(totalPages, 10);
+      
+      for (let pageNum = 1; pageNum <= pagesToProcess; pageNum++) {
+        try {
+          const tempImage = `/tmp/ocr_page_${pageNum}.png`;
+          const tempText = `/tmp/ocr_page_${pageNum}`;
+          
+          // Convert PDF page to image using pdftoppm
+          await execAsync(`pdftoppm -f ${pageNum} -l ${pageNum} -png "${filePath}" "${tempImage.replace('.png', '')}"`);
+          
+          // OCR the image with Tesseract
+          await execAsync(`tesseract "${tempImage}" "${tempText}" -l eng`);
+          
+          // Read extracted text
+          const pageText = fs.readFileSync(`${tempText}.txt`, 'utf8');
+          
+          if (pageText.trim()) {
+            pages.push({
+              pageNumber: pageNum,
+              text: pageText.trim(),
+              hasImages: true
+            });
+            fullText += pageText.trim() + '\n\n';
+          }
+          
+          // Cleanup
+          fs.unlinkSync(tempImage);
+          fs.unlinkSync(`${tempText}.txt`);
+          
+        } catch (pageError) {
+          console.error(`OCR failed for page ${pageNum}:`, pageError);
+        }
+      }
       
       return {
-        text: 'OCR extraction requires Tesseract. Please install tesseract-ocr.',
-        pages: [],
-        totalPages: 0,
+        text: fullText.trim(),
+        pages,
+        totalPages: pagesToProcess,
         isScanned: true,
-        confidence: 0
+        confidence: 0.85
       };
       
     } catch (error) {
       console.error('OCR extraction error:', error);
-      throw error;
+      throw new Error(`Failed to extract PDF with OCR: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
