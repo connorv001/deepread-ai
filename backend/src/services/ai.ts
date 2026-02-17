@@ -64,7 +64,15 @@ export class AIService {
       chapter: 'Summarize this chapter.'
     }[params.type];
 
-    const prompt = `${typeInstruction} ${formatInstruction}\n\nText:\n${params.text || 'Full document'}`;
+    const prompt = `${typeInstruction} ${formatInstruction}
+
+Below is the content to summarize:
+
+---CONTENT START---
+${params.text || 'Full document'}
+---CONTENT END---
+
+Important: Summarize ONLY the content provided above. Do not say you cannot access it - the content is right there between ---CONTENT START--- and ---CONTENT END---.`;
     const model = getModel(params.model);
 
     const stream = await openrouter.chat.completions.create({
@@ -104,7 +112,15 @@ export class AIService {
       chapter: 'Summarize this chapter.'
     }[params.type];
 
-    const prompt = `${typeInstruction} ${formatInstruction}\n\nText:\n${params.text || 'Full document'}`;
+    const prompt = `${typeInstruction} ${formatInstruction}
+
+Below is the content to summarize:
+
+---CONTENT START---
+${params.text || 'Full document'}
+---CONTENT END---
+
+Important: Summarize ONLY the content provided above. Do not say you cannot access it - the content is right there between ---CONTENT START--- and ---CONTENT END---.`;
 
     const preferredModel = getModel(params.model);
 
