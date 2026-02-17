@@ -183,6 +183,11 @@ function SummaryPanel({ documentId }: { documentId: string }) {
   const [format, setFormat] = useState<"paragraph" | "bullet">("paragraph");
   const [generatedSummary, setGeneratedSummary] = useState<string | null>(null);
 
+  // Debug: log whenever currentPage changes
+  useEffect(() => {
+    console.log('[SUMMARY PANEL] currentPage changed:', currentPage);
+  }, [currentPage]);
+
   const summarizeMutation = useMutation({
     mutationFn: ({ text, type, pageStart, pageEnd }: { 
       text: string; 
