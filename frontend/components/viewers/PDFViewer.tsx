@@ -96,8 +96,10 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
   const goToPage = useCallback(
     (page: number) => {
       const newPage = Math.max(1, Math.min(page, numPages));
+      console.log('[PDF VIEWER] goToPage:', { newPage, numPages });
       setCurrentPage(newPage);
       setPageInputValue(String(newPage));
+      console.log('[PDF VIEWER] Calling onPageChange:', { newPage, numPages });
       onPageChange?.(newPage, numPages);
     },
     [numPages, onPageChange]

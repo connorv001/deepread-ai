@@ -50,6 +50,7 @@ export default function ReaderPage() {
 
   const handlePageChange = useCallback(
     (page: number, totalPages: number) => {
+      console.log('[READER PAGE] handlePageChange called:', { page, totalPages });
       setCurrentPage(page);
     },
     [setCurrentPage]
