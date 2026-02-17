@@ -188,17 +188,31 @@ function SummaryPanel({ documentId }: { documentId: string }) {
       type: string;
       pageStart?: number;
       pageEnd?: number;
-    }) =>
-      aiApi.summarize({
+    }) => {
+      console.log('[SUMMARY MUTATION] Sending to API:', {
+        documentId,
+        text: text?.slice(0, 50),
+        type,
+        pageStart,
+        pageEnd,
+        format
+      });
+      return aiApi.summarize({
         documentId,
         text,
         type: type as any,
         format,
         pageStart,
         pageEnd,
-      }),
+      });
+    },
     onSuccess: (response) => {
+      console.log('[SUMMARY MUTATION] Response:', response.data);
       setGeneratedSummary(response.data.data.content);
+      setIsAILoading(false);
+    },
+    onError: (error) => {
+      console.error('[SUMMARY MUTATION] Error:', error);
       setIsAILoading(false);
     },
   });
