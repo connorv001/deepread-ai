@@ -83,9 +83,10 @@ router.get('/status/:jobId', async (req, res, next) => {
       throw new AppError(404, 'Audio job not found');
     }
 
+    // Return proxied URL instead of direct MinIO URL
     let url = null;
     if (job.storageKey && job.status === 'COMPLETED') {
-      url = await storageService.getSignedUrl(job.storageKey, 3600);
+      url = `/api/audio/stream/${job.id}`;
     }
 
     res.json({
@@ -101,6 +102,36 @@ router.get('/status/:jobId', async (req, res, next) => {
         completedAt: job.completedAt
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Stream audio file (proxies from MinIO)
+router.get('/stream/:jobId', async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const userId = req.user!.id;
+
+    const job = await prisma.audioJob.findFirst({
+      where: { id: jobId, userId }
+    });
+
+    if (!job) {
+      throw new AppError(404, 'Audio job not found');
+    }
+
+    if (job.status !== 'COMPLETED' || !job.storageKey) {
+      throw new AppError(400, 'Audio not ready');
+    }
+
+    // Stream from MinIO
+    const stream = await storageService.getFileStream(job.storageKey);
+    
+    res.setHeader('Content-Type', 'audio/wav');
+    res.setHeader('Accept-Ranges', 'bytes');
+    
+    stream.pipe(res);
   } catch (error) {
     next(error);
   }

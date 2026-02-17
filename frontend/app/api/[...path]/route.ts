@@ -67,6 +67,7 @@ async function handler(
     const isBinary = responseContentType.includes('application/pdf') || 
                      responseContentType.includes('application/epub') ||
                      responseContentType.includes('application/octet-stream') ||
+                     responseContentType.includes('audio/') ||
                      responseContentType.includes('image/');
     
     // Get response data - use arrayBuffer for binary, text for JSON/text
