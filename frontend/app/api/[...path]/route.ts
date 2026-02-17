@@ -54,6 +54,11 @@ async function handler(
       }
     }
 
+    // Debug logging for summarize requests
+    if (path.includes('ai/summarize') && body) {
+      console.log('[BFF PROXY] Summarize request body:', body);
+    }
+
     // Forward request to backend
     const response = await fetch(backendUrl.toString(), {
       method: request.method,

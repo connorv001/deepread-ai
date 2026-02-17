@@ -38,6 +38,14 @@ router.post('/summarize', async (req, res, next) => {
     const params = summarizeSchema.parse(req.body);
     const userId = req.user!.id;
 
+    console.log('[SUMMARIZE] Request params:', {
+      type: params.type,
+      pageStart: params.pageStart,
+      pageEnd: params.pageEnd,
+      textLength: params.text?.length,
+      hasText: !!params.text
+    });
+
     // Fetch document with extracted text/chunks if no text provided
     let textToSummarize = params.text;
     if (!textToSummarize || params.type === 'full' || params.type === 'chapter') {
@@ -57,9 +65,12 @@ router.post('/summarize', async (req, res, next) => {
         );
         
         textToSummarize = pageChunks.map((c: any) => c.content || c.text).join('\n\n');
-        console.log(`Extracted ${pageChunks.length} chunks for pages ${pageStart}-${pageEnd}`);
+        console.log(`[SUMMARIZE] Extracted ${pageChunks.length} chunks for pages ${pageStart}-${pageEnd}, text length: ${textToSummarize.length}`);
       } else if (document?.extractedText) {
         textToSummarize = document.extractedText;
+        console.log(`[SUMMARIZE] Using full extracted text, length: ${textToSummarize.length}`);
+      } else {
+        console.log(`[SUMMARIZE] No text found. Chunks: ${document?.chunks ? 'yes' : 'no'}, Type: ${params.type}, pageStart: ${params.pageStart}`);
       }
     }
 

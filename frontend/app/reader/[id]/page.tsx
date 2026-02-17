@@ -261,14 +261,19 @@ function SummaryPanel({ documentId }: { documentId: string }) {
       </div>
 
       <Button
-        onClick={() =>
+        onClick={() => {
+          console.log('[SUMMARY BUTTON] Clicked with:', {
+            currentPage,
+            textToSummarize,
+            type: currentPage ? "chapter" : "selection"
+          });
           summarizeMutation.mutate({ 
             text: textToSummarize, 
             type: currentPage ? "chapter" : "selection",
             pageStart: currentPage,
             pageEnd: currentPage,
-          })
-        }
+          });
+        }}
         disabled={summarizeMutation.isPending}
         className="w-full"
       >
