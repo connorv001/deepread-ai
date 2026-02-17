@@ -38,15 +38,27 @@ router.post('/summarize', async (req, res, next) => {
     const params = summarizeSchema.parse(req.body);
     const userId = req.user!.id;
 
-    // Fetch document with extracted text if no text provided
+    // Fetch document with extracted text/chunks if no text provided
     let textToSummarize = params.text;
-    if (!textToSummarize || params.type === 'full') {
+    if (!textToSummarize || params.type === 'full' || params.type === 'chapter') {
       const document = await prisma.document.findFirst({
         where: { id: params.documentId, userId },
-        select: { extractedText: true }
+        select: { extractedText: true, chunks: true }
       });
       
-      if (document?.extractedText) {
+      // For chapter/page-specific summary, extract from chunks
+      if (document?.chunks && Array.isArray(document.chunks) && 
+          params.type === 'chapter' && params.pageStart) {
+        const pageStart = params.pageStart;
+        const pageEnd = params.pageEnd || params.pageStart;
+        
+        const pageChunks = (document.chunks as any[]).filter(
+          (chunk: any) => chunk.page >= pageStart && chunk.page <= pageEnd
+        );
+        
+        textToSummarize = pageChunks.map((c: any) => c.content || c.text).join('\n\n');
+        console.log(`Extracted ${pageChunks.length} chunks for pages ${pageStart}-${pageEnd}`);
+      } else if (document?.extractedText) {
         textToSummarize = document.extractedText;
       }
     }
@@ -243,15 +255,27 @@ router.post('/summarize/stream', async (req, res, next) => {
     const params = summarizeSchema.parse(req.body);
     const userId = req.user!.id;
 
-    // Fetch document with extracted text if no text provided
+    // Fetch document with extracted text/chunks if no text provided
     let textToSummarize = params.text;
-    if (!textToSummarize || params.type === 'full') {
+    if (!textToSummarize || params.type === 'full' || params.type === 'chapter') {
       const document = await prisma.document.findFirst({
         where: { id: params.documentId, userId },
-        select: { extractedText: true }
+        select: { extractedText: true, chunks: true }
       });
 
-      if (document?.extractedText) {
+      // For chapter/page-specific summary, extract from chunks
+      if (document?.chunks && Array.isArray(document.chunks) && 
+          params.type === 'chapter' && params.pageStart) {
+        const pageStart = params.pageStart;
+        const pageEnd = params.pageEnd || params.pageStart;
+        
+        const pageChunks = (document.chunks as any[]).filter(
+          (chunk: any) => chunk.page >= pageStart && chunk.page <= pageEnd
+        );
+        
+        textToSummarize = pageChunks.map((c: any) => c.content || c.text).join('\n\n');
+        console.log(`Stream: Extracted ${pageChunks.length} chunks for pages ${pageStart}-${pageEnd}`);
+      } else if (document?.extractedText) {
         textToSummarize = document.extractedText;
       }
     }
