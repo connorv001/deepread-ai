@@ -183,12 +183,19 @@ function SummaryPanel({ documentId }: { documentId: string }) {
   const [generatedSummary, setGeneratedSummary] = useState<string | null>(null);
 
   const summarizeMutation = useMutation({
-    mutationFn: ({ text, type }: { text: string; type: string }) =>
+    mutationFn: ({ text, type, pageStart, pageEnd }: { 
+      text: string; 
+      type: string;
+      pageStart?: number;
+      pageEnd?: number;
+    }) =>
       aiApi.summarize({
         documentId,
         text,
         type: type as any,
         format,
+        pageStart,
+        pageEnd,
       }),
     onSuccess: (response) => {
       setGeneratedSummary(response.data.data.content);
@@ -255,7 +262,12 @@ function SummaryPanel({ documentId }: { documentId: string }) {
 
       <Button
         onClick={() =>
-          summarizeMutation.mutate({ text: textToSummarize, type: "selection" })
+          summarizeMutation.mutate({ 
+            text: textToSummarize, 
+            type: currentPage ? "chapter" : "selection",
+            pageStart: currentPage,
+            pageEnd: currentPage,
+          })
         }
         disabled={summarizeMutation.isPending}
         className="w-full"
