@@ -158,7 +158,10 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => goToPage(currentPage - 1)}
+            onClick={() => {
+              console.log('[PDF VIEWER] Prev button clicked, currentPage:', currentPage);
+              goToPage(currentPage - 1);
+            }}
             disabled={currentPage <= 1}
           >
             <ChevronLeft className="w-4 h-4" />
@@ -176,7 +179,10 @@ export function PDFViewer({ url, onTextSelection, onPageChange }: PDFViewerProps
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => goToPage(currentPage + 1)}
+            onClick={() => {
+              console.log('[PDF VIEWER] Next button clicked, currentPage:', currentPage);
+              goToPage(currentPage + 1);
+            }}
             disabled={currentPage >= numPages}
           >
             <ChevronRight className="w-4 h-4" />
