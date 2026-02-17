@@ -224,6 +224,13 @@ function SummaryPanel({ documentId }: { documentId: string }) {
       ? `Summarize page ${currentPage} of the document`
       : "");
 
+  // DEBUG: Log the current state
+  console.log('[SUMMARY PANEL] Render state:', {
+    selectedText: selectedText?.slice(0, 50),
+    currentPage,
+    textToSummarize: textToSummarize?.slice(0, 50),
+  });
+
   if (!textToSummarize) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4">
@@ -253,7 +260,7 @@ function SummaryPanel({ documentId }: { documentId: string }) {
         <strong>Summarizing:</strong> {textToSummarize.slice(0, 200)}
         {textToSummarize.length > 200 && "..."}
         {currentPage && (
-          <div className="text-xs mt-1">Page: {currentPage}</div>
+          <div className="text-xs mt-1">Page: {currentPage} (store value)</div>
         )}
       </div>
 

@@ -1,0 +1,66 @@
+# Page snapshot
+
+```yaml
+- dialog "Unhandled Runtime Error" [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - navigation [ref=e7]:
+          - button "previous" [disabled] [ref=e8]:
+            - img "previous" [ref=e9]
+          - button "next" [disabled] [ref=e11]:
+            - img "next" [ref=e12]
+          - generic [ref=e14]: 1 of 1 error
+          - generic [ref=e15]:
+            - text: Next.js (14.2.35) is outdated
+            - link "(learn more)" [ref=e17] [cursor=pointer]:
+              - /url: https://nextjs.org/docs/messages/version-staleness
+        - button "Close" [ref=e18] [cursor=pointer]:
+          - img [ref=e20]
+      - heading "Unhandled Runtime Error" [level=1] [ref=e23]
+      - paragraph [ref=e24]: "TypeError: Object.defineProperty called on non-object"
+    - generic [ref=e25]:
+      - heading "Call Stack" [level=2] [ref=e26]
+      - generic [ref=e27]:
+        - heading "Object.defineProperty" [level=3] [ref=e28]
+        - generic [ref=e30]: <anonymous>
+      - group [ref=e31]:
+        - generic "Next.js" [ref=e32] [cursor=pointer]:
+          - img [ref=e33]
+          - img [ref=e35]
+          - text: Next.js
+      - generic [ref=e40]:
+        - heading "eval" [level=3] [ref=e41]
+        - generic [ref=e43]: webpack-internal:/(app-pages-browser)/node_modules/pdfjs-dist/build/pdf.mjs
+      - generic [ref=e44]:
+        - heading "(app-pages-browser)/./node_modules/pdfjs-dist/build/pdf.mjs" [level=3] [ref=e45]
+        - generic [ref=e47]: file:///data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/.next/static/chunks/_app-pages-browser_components_viewers_PDFViewer_tsx.js (218:1)
+      - generic [ref=e48]:
+        - heading "options.factory" [level=3] [ref=e49]
+        - generic [ref=e51]: file:///data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/.next/static/chunks/webpack.js (715:31)
+      - group [ref=e52]:
+        - generic "Next.js" [ref=e53] [cursor=pointer]:
+          - img [ref=e54]
+          - img [ref=e56]
+          - text: Next.js
+      - generic [ref=e61]:
+        - heading "fn" [level=3] [ref=e62]
+        - generic [ref=e64]: file:///data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/.next/static/chunks/webpack.js (371:21)
+      - generic [ref=e65]:
+        - heading "eval" [level=3] [ref=e66]
+        - generic [ref=e68]: webpack-internal:/(app-pages-browser)/components/viewers/PDFViewer.tsx
+      - generic [ref=e69]:
+        - heading "(app-pages-browser)/./components/viewers/PDFViewer.tsx" [level=3] [ref=e70]
+        - generic [ref=e72]: file:///data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/.next/static/chunks/_app-pages-browser_components_viewers_PDFViewer_tsx.js (118:1)
+      - generic [ref=e73]:
+        - heading "options.factory" [level=3] [ref=e74]
+        - generic [ref=e76]: file:///data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/.next/static/chunks/webpack.js (715:31)
+      - group [ref=e77]:
+        - generic "Next.js" [ref=e78] [cursor=pointer]:
+          - img [ref=e79]
+          - img [ref=e81]
+          - text: Next.js
+      - generic [ref=e86]:
+        - heading "fn" [level=3] [ref=e87]
+        - generic [ref=e89]: file:///data/root_relocation/OpenClaw/workspace/projects/deepread-ai/frontend/.next/static/chunks/webpack.js (371:21)
+```
