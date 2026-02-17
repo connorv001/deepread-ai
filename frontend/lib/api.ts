@@ -81,6 +81,8 @@ export const aiApi = {
     text?: string;
     type: "full" | "selection" | "chapter";
     format?: "paragraph" | "bullet";
+    pageStart?: number;
+    pageEnd?: number;
   }) => api.post("/ai/summarize", data),
 
   // Streaming version
@@ -90,6 +92,8 @@ export const aiApi = {
       text?: string;
       type: "full" | "selection" | "chapter";
       format?: "paragraph" | "bullet";
+      pageStart?: number;
+      pageEnd?: number;
     },
     options: StreamOptions
   ) => streamPOST("/api/ai/summarize/stream", data, options),
