@@ -12,15 +12,16 @@ const openrouter = new OpenAI({
   }
 });
 
-// Default model - Gemini 3 Flash via OpenRouter
-const DEFAULT_MODEL = 'google/gemini-3-flash:beta';
+// Default model - Minimax M2.5 via OpenRouter
+const DEFAULT_MODEL = 'minimax/minimax-m2.5';
 
 // Alternative models users can choose
 const MODELS = {
   'gemini-flash': 'google/gemini-3-flash:beta',
   'gemini-pro': 'google/gemini-3-pro:beta',
   'claude': 'anthropic/claude-3.5-sonnet',
-  'gpt-4': 'openai/gpt-4o-mini'
+  'gpt-4': 'openai/gpt-4o-mini',
+  'minimax': 'minimax/minimax-m2.5'
 };
 
 interface SummarizeParams {
